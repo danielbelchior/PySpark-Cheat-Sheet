@@ -1,11 +1,25 @@
 # PySpark-Cheat-Sheet
 
+### Create basic DataFrame
+```
+integerDF = (spark.createDataFrame([
+  (1, 2),
+  (3, 4),
+  (5, 6)
+], ["col1", "col2"]))
+```
+
 ### Add column
 ```
 newDF = (originalDF
   .withColumn("newcolumnname", col("id") + 1 )
 )
 ```
+
+### Drop Column
+```
+dedupedDF = dupedWithColsDF.drop("lcFirstName", "lcMiddleName", "lcLastName", "ssnNums")
+`` 
 
 ### Replace/manipulate value on column
 ```
@@ -50,3 +64,55 @@ corruptImputedDF = corruptDF.na.fill({"temperature": 68, "wind": 6})
 duplicateDedupedDF = duplicateDF.dropDuplicates(["id", "favorite_color"])
 ```
 
+
+### Custom Transformations with User Defined Functions
+```
+from pyspark.sql.types import StringType
+
+
+def manual_split(x):
+  return x.split("e")
+
+manualSplitPythonUDF = spark.udf.register("manualSplitSQLUDF", manual_split, StringType())
+
+randomAugmentedDF = randomDF.select("*", manualSplitPythonUDF("hash").alias("augmented_col"))
+```
+
+### Register DataFrame to access it with SQL
+```
+randomDF.createOrReplaceTempView("randomTable")
+```
+```
+%sql
+SELECT id,
+  hash,
+  manualSplitSQLUDF(hash) as augmented_col
+FROM
+  randomTable
+```
+
+### Join Two DataFrames by column name
+```
+pageviewsEnhancedDF = pageviewsDF.join(labelsDF, "dow")
+```
+
+
+### Group by and Sum
+```
+from pyspark.sql.functions import col
+
+aggregatedDowDF = (pageviewsEnhancedDF
+  .groupBy(col("dow"), col("longName"), col("abbreviated"), col("shortName"))  
+  .sum("requests")                                             
+  .withColumnRenamed("sum(requests)", "Requests")
+  .orderBy(col("dow"))
+)
+```
+
+### Save DataFrame HIVE table (SQL)
+```
+df.write.mode("OVERWRITE").saveAsTable("myTableManaged")
+#or
+df.write.mode("OVERWRITE").option('path', 'home/dbel/myTableUnmanaged').saveAsTable("myTableUnmanaged")
+
+```
